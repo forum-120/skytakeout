@@ -6,21 +6,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
-import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurationSupport;
-import springfox.documentation.builders.ApiInfoBuilder;
-import springfox.documentation.builders.PathSelectors;
-import springfox.documentation.builders.RequestHandlerSelectors;
-import springfox.documentation.service.ApiInfo;
-import springfox.documentation.spi.DocumentationType;
-import springfox.documentation.spring.web.plugins.Docket;
+// 1. 关键改动：导入 WebMvcConfigurer
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.info.Info;
 
 /**
  * 配置类，注册web层相关组件
  */
 @Configuration
 @Slf4j
-public class WebMvcConfiguration extends WebMvcConfigurationSupport {
+// 2. 关键改动：实现 WebMvcConfigurer 接口
+public class WebMvcConfiguration implements WebMvcConfigurer {
 
     @Autowired
     private JwtTokenAdminInterceptor jwtTokenAdminInterceptor;
@@ -30,11 +27,18 @@ public class WebMvcConfiguration extends WebMvcConfigurationSupport {
      *
      * @param registry
      */
-    protected void addInterceptors(InterceptorRegistry registry) {
+    @Override
+    public // 3. 加上 @Override
+     void addInterceptors(InterceptorRegistry registry) {
         log.info("开始注册自定义拦截器...");
         registry.addInterceptor(jwtTokenAdminInterceptor)
-                .addPathPatterns("/admin/**")
-                .excludePathPatterns("/admin/employee/login");
+                .addPathPatterns("/admin/**") // 拦截所有 /admin/** 路径
+                .excludePathPatterns("/admin/employee/login"); // 仅放行登录接口
+
+        // 4. 已删除多余的放行路径：
+        // 你的拦截器只管 /admin/**，
+        // 而 /doc.html, /webjars/** 等路径根本不在 /admin/** 之下，
+        // 所以它们本来就不会被这个拦截器拦截，无需额外 exclude。
     }
 
     /**
@@ -42,27 +46,17 @@ public class WebMvcConfiguration extends WebMvcConfigurationSupport {
      * @return
      */
     @Bean
-    public Docket docket() {
-        ApiInfo apiInfo = new ApiInfoBuilder()
-                .title("苍穹外卖项目接口文档")
-                .version("2.0")
-                .description("苍穹外卖项目接口文档")
-                .build();
-        Docket docket = new Docket(DocumentationType.SWAGGER_2)
-                .apiInfo(apiInfo)
-                .select()
-                .apis(RequestHandlerSelectors.basePackage("com.sky.controller"))
-                .paths(PathSelectors.any())
-                .build();
-        return docket;
+    public OpenAPI openAPI() {
+        log.info("准备生成接口文档");
+        return new OpenAPI()
+                .info(new Info()
+                        .title("苍穹外卖项目接口文档")
+                        .version("2.0")
+                        .description("苍穹外卖项目接口文档"));
     }
 
-    /**
-     * 设置静态资源映射
-     * @param registry
-     */
-    protected void addResourceHandlers(ResourceHandlerRegistry registry) {
-        registry.addResourceHandler("/doc.html").addResourceLocations("classpath:/META-INF/resources/");
-        registry.addResourceHandler("/webjars/**").addResourceLocations("classpath:/META-INF/resources/webjars/");
-    }
+
+    // 5. 关键改动：删除了整个 addResourceHandlers 方法
+    //    实现 WebMvcConfigurer 后，Spring Boot 会自动配置好
+    //    knife4j 和你项目（如 static 目录）的静态资源映射。
 }

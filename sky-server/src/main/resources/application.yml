@@ -2,10 +2,16 @@ server:
   port: 8080
 
 spring:
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
   profiles:
     active: dev
   main:
     allow-circular-references: true
+  redis:
+    host: 127.0.0.1
+    port: 6379
   datasource:
     druid:
       driver-class-name: ${sky.datasource.driver-class-name}
